@@ -23,6 +23,18 @@ class FileMetadata {
 	constructor(filename) {
 		this.filename = filename;
 		this.layerNames = [];
+		this.imageSizes = { };
+	}
+	
+	// the metadata file is like
+	// { "monster_name": "whatever", "parts":{ "part_name": { "file_name":filename, "width":w, "height":h, etc }}}
+	getFileMetadata() {
+		var totalData = {};
+		totalData['monster_name'] = this.filename;
+
+		// TODO: finish this part
+		totalData['parts'] = this.imageSizes;
+		return JSON.stringify(totalData);
 	}
 }
 
@@ -127,13 +139,24 @@ function processFile(fileMetadata) {
 
 	// for each pair (each set that is the same except for _line and _color at the end), call the compositing function
 	for (var pairIndex = 0; pairIndex < pairIndexes.length - 1; pairIndex += 2) {
-		exportCompositeLayerAsPng(fileMetadata, `${folderName}/head.png`, pairIndexes[pairIndex], pairIndexes[pairIndex + 1]);
+		var pngFilename = fileMetadata.filename.replace('psd', 'png');
+		var imageSize = exportCompositeLayerAsPng(fileMetadata, `${folderName}/head.png`, pairIndexes[pairIndex], pairIndexes[pairIndex + 1]);
+		console.log(`imageSize: ${JSON.stringify(imageSize)}`);
+		fileMetadata.imageSizes[pngFilename] = imageSize.split(' '); // store as [width, height]
 	}
 
 	// track non-pair layers so we can store them to a file in the root 
-	console.log(`Non-paired layers: ${JSON.stringify(nonPairedLayerNames)}`);
+	// console.log(`Non-paired layers: ${JSON.stringify(nonPairedLayerNames)}`);
 
 	// save a metadata file with the sizes of each PNG in it
+	// the metadata file is like
+	// { "monster_name": "whatever", "parts":{ "part_name": { "file_name":filename, "width":w, "height":h, etc }}}
+	fs.writeFile(`${folderName}/metadata.json`, fileMetadata.getFileMetadata(), function(err) {
+		if (err) {
+			console.log(`Error saving metadata file: ${err.message}`);
+		}
+		console.log(`Monster ${fileMetadata.filename} composed.`);
+	});
 }
 
 // returns an ordered array of layers in the passed PSD location 
@@ -150,6 +173,7 @@ function getLayerNames(file) {
 }
 
 // exports the passed layer indexes as a single PNG 
+// returns the size of that PNG as the format "x y" so the calling function can split it on ' ' and save it in the metadata
 function exportCompositeLayerAsPng(fileMetadata, targetFilename, layer1Index, layer2Index) {
 	// this composites layers:
 	// magick composite -gravity center 'test/hair_1.psd[2]' 'test/hair_1.psd[1]' hair.png 
@@ -157,5 +181,7 @@ function exportCompositeLayerAsPng(fileMetadata, targetFilename, layer1Index, la
 	console.log(`Exporting '${fileMetadata.filename}[${layer1Index}]' '${fileMetadata.filename}[${layer2Index}]' to ${targetFilename}`);
 	console.log(`CLI call is: magick composite -gravity center '${fileMetadata.filename}[${layer1Index}]' '${fileMetadata.filename}[${layer2Index}]' ${targetFilename}`);
 	var cliReturn = execSync(`magick composite -gravity center '${fileMetadata.filename}[${layer1Index}]' '${fileMetadata.filename}[${layer2Index}]' ${targetFilename}`);
+	var cliReturn = execSync(`magick identify -format "%[fx:w] %[fx:h]" ${targetFilename}`);
 
+	return cliReturn.toString();
 }
