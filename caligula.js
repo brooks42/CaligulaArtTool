@@ -23,18 +23,23 @@ class FileMetadata {
 	constructor(filename) {
 		this.filename = filename;
 		this.layerNames = [];
-		this.imageSizes = { };
+		this.partInfo = { };
+		this.bodyPartNames = [];
 	}
 	
+	getMonsterName() {
+		return this.filename.split('/')[this.filename.split('/').length - 1].replace('.psd', '');
+	}
+
 	// the metadata file is like
 	// { "monster_name": "whatever", "parts":{ "part_name": { "file_name":filename, "width":w, "height":h, etc }}}
 	getFileMetadata() {
 		var totalData = {};
-		totalData['monster_name'] = this.filename;
+		totalData['monster_name'] = this.getMonsterName();
 
 		// TODO: finish this part
-		totalData['parts'] = this.imageSizes;
-		return JSON.stringify(totalData);
+		totalData['parts'] = this.partInfo;
+		return JSON.stringify(totalData, null, '\t');
 	}
 }
 
@@ -102,6 +107,7 @@ function processFile(fileMetadata) {
 
 	var pairIndexes = []; // indexes of each pair, in pairs
 	var nonPairedLayerNames = []; // layers that we didn't detect a pair for
+	var foundBodyPartNames = []; // the base name of every pair of layers we find, these are assumed to be monster body parts
 
 	var lineIndex = 0;
 	var colorIndex = 0;
@@ -119,6 +125,7 @@ function processFile(fileMetadata) {
 						console.log(`paired layers ${line}`);
 						paired = true;
 						pairIndexes.push(lineIndex, colorIndex);
+						foundBodyPartNames.push(line);
 						break;
 					}
 				}
@@ -137,12 +144,17 @@ function processFile(fileMetadata) {
 		lineIndex++;
 	}
 
+	fileMetadata.bodyPartNames = foundBodyPartNames;
+
 	// for each pair (each set that is the same except for _line and _color at the end), call the compositing function
 	for (var pairIndex = 0; pairIndex < pairIndexes.length - 1; pairIndex += 2) {
-		var pngFilename = fileMetadata.filename.replace('psd', 'png');
-		var imageSize = exportCompositeLayerAsPng(fileMetadata, `${folderName}/head.png`, pairIndexes[pairIndex], pairIndexes[pairIndex + 1]);
-		console.log(`imageSize: ${JSON.stringify(imageSize)}`);
-		fileMetadata.imageSizes[pngFilename] = imageSize.split(' '); // store as [width, height]
+
+		var bodyPartName = foundBodyPartNames[pairIndex / 2];
+		var partFilename = bodyPartName + '.png';
+		var imageSize = exportCompositeLayerAsPng(fileMetadata, `${folderName}/${partFilename}`, pairIndexes[pairIndex], pairIndexes[pairIndex + 1]);
+		
+		var partInfo = { 'file_name':partFilename, 'width': imageSize.split(' ')[0], 'height': imageSize.split(' ')[1] };
+		fileMetadata.partInfo[bodyPartName] = partInfo; // store as [width, height]
 	}
 
 	// track non-pair layers so we can store them to a file in the root 
@@ -155,14 +167,14 @@ function processFile(fileMetadata) {
 		if (err) {
 			console.log(`Error saving metadata file: ${err.message}`);
 		}
-		console.log(`Monster ${fileMetadata.filename} composed.`);
+		console.log(`Monster ${fileMetadata.getMonsterName()} composed.`);
 	});
 }
 
 // returns an ordered array of layers in the passed PSD location 
 function getLayerNames(file) {
 	// the layer names come in from the command convert test/tank_sketch.psd -verbose info: | grep "label:" 
-	var cliReturn = execSync(`convert test/tank_sketch.psd -verbose info: | grep "label:" `);
+	var cliReturn = execSync(`convert ${file} -verbose info: | grep "label:" `);
 	
 	var layersArray = cliReturn.toString().trim().split('label:');
 	for (index in layersArray) {

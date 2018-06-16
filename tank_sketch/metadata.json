@@ -1,1 +1,10 @@
-{"monster_name":"test/tank_sketch.psd","parts":{"test/tank_sketch.png":["130","180"]}}
+{
+	"monster_name": "tank_sketch",
+	"parts": {
+		"head": {
+			"file_name": "head.png",
+			"width": "130",
+			"height": "180"
+		}
+	}
+}
