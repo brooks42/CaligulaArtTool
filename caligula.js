@@ -151,10 +151,7 @@ function processFile(fileMetadata) {
 
 		var bodyPartName = foundBodyPartNames[pairIndex / 2];
 		var partFilename = bodyPartName + '.png';
-		var imageSize = exportCompositeLayerAsPng(fileMetadata, `${folderName}/${partFilename}`, pairIndexes[pairIndex], pairIndexes[pairIndex + 1]);
-		
-		var partFilename2 = bodyPartName + '2.png';
-		imageSize = exportCompositeLayerAsPNG2(fileMetadata, `${folderName}/${partFilename2}`, pairIndexes[pairIndex], pairIndexes[pairIndex + 1]);
+		var imageSize = exportCompositeLayerAsPNG2(fileMetadata, `${folderName}/${partFilename}`, pairIndexes[pairIndex], pairIndexes[pairIndex + 1]);
 
 		var partInfo = { 'file_name':partFilename, 'width': imageSize.split(' ')[0], 'height': imageSize.split(' ')[1] };
 		fileMetadata.partInfo[bodyPartName] = partInfo; // store as [width, height]
