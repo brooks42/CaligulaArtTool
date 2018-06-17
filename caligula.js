@@ -153,6 +153,9 @@ function processFile(fileMetadata) {
 		var partFilename = bodyPartName + '.png';
 		var imageSize = exportCompositeLayerAsPng(fileMetadata, `${folderName}/${partFilename}`, pairIndexes[pairIndex], pairIndexes[pairIndex + 1]);
 		
+		var partFilename2 = bodyPartName + '2.png';
+		imageSize = exportCompositeLayerAsPNG2(fileMetadata, `${folderName}/${partFilename2}`, pairIndexes[pairIndex], pairIndexes[pairIndex + 1]);
+
 		var partInfo = { 'file_name':partFilename, 'width': imageSize.split(' ')[0], 'height': imageSize.split(' ')[1] };
 		fileMetadata.partInfo[bodyPartName] = partInfo; // store as [width, height]
 	}
@@ -191,9 +194,30 @@ function exportCompositeLayerAsPng(fileMetadata, targetFilename, layer1Index, la
 	// magick composite -gravity center 'test/hair_1.psd[2]' 'test/hair_1.psd[1]' hair.png 
 	
 	console.log(`Exporting '${fileMetadata.filename}[${layer1Index}]' '${fileMetadata.filename}[${layer2Index}]' to ${targetFilename}`);
-	console.log(`CLI call is: magick composite -gravity center '${fileMetadata.filename}[${layer1Index}]' '${fileMetadata.filename}[${layer2Index}]' ${targetFilename}`);
-	var cliReturn = execSync(`magick composite -gravity center '${fileMetadata.filename}[${layer1Index}]' '${fileMetadata.filename}[${layer2Index}]' ${targetFilename}`);
-	var cliReturn = execSync(`magick identify -format "%[fx:w] %[fx:h]" ${targetFilename}`);
+	console.log(`CLI call is: magick composite -compose Dst_Over -gravity center '${fileMetadata.filename}[${layer2Index}]' '${fileMetadata.filename}[${layer1Index}]' ${targetFilename}`);
+	var cliReturn = execSync(`magick composite -compose Dst_Over -gravity center '${fileMetadata.filename}[${layer2Index}]' '${fileMetadata.filename}[${layer1Index}]' ${targetFilename}`);
+	cliReturn = execSync(`magick identify -format "%[fx:w] %[fx:h]" ${targetFilename}`);
 
+	return cliReturn.toString();
+}
+
+// does the same as the above method but does it in such a way that the image ends up better
+// this might be the way to do it instead of the above, although this is expensive
+function exportCompositeLayerAsPNG2(fileMetadata, targetFilename, layer1Index, layer2Index) {
+
+	console.log(`Exporting '${fileMetadata.filename}[${layer1Index}]' '${fileMetadata.filename}[${layer2Index}]' to ${targetFilename}`);
+	console.log(`CLI call is: magick composite -gravity center '${fileMetadata.filename}[${layer1Index}]' '${fileMetadata.filename}[${layer2Index}]' ${targetFilename}`);
+	
+	// composite the layers together, this results in an image with a transparent background (despite what the doc says for
+	// ImageMagick, you can just do -background transparent _in front of_ the -layers merge and it works :/ )
+	var cliReturn = execSync(`convert \
+    '${fileMetadata.filename}[${layer2Index}]' \
+    '${fileMetadata.filename}[${layer1Index}]' \
+    -background transparent \
+    -layers merge \
+	${targetFilename}`);
+	
+	// return the size of the resulting image 
+	cliReturn = execSync(`magick identify -format "%[fx:w] %[fx:h]" ${targetFilename}`);
 	return cliReturn.toString();
 }
