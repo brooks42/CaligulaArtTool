@@ -63,3 +63,5 @@ typings/
 # don't push images
 *.png
 .DS_Store
+
+tank_sketch
